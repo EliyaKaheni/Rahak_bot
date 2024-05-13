@@ -1,0 +1,126 @@
+import csv
+import telebot
+from telebot import types
+
+BOT_ID = 'Boom-Boom'
+bot = telbot.Telebot(BOT_ID)
+
+# Users temp database
+users = {}
+
+# Error handler
+def error(message):
+    bot.send_message(message.chat.id, "ببخشید فکر کنم یه اشتباهی پیش اومده 🤦\n لطفا ربات رو مجددا استارت کن و از اول مراحل رو طی کن. در صورت نیاز هم با ادمین تماس بگیر.")
+
+
+""" DATABASE MANAGEMENT """
+def Read_DataBase():
+    try:
+        with open('users.csv', mode='r') as infile:
+            reader = csv.reader(infile)
+            temp = {rows[0]:[rows[1], rows[2], rows[3]] for rows in reader}
+
+        print(temp)
+        return temp
+    except:
+        print('Please check the database')
+
+def Write_DataBase(users):
+    try:
+        field_names = ['ID', 'Name', 'Book', 'League']
+
+        with open('users.csv', 'w') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames = field_names)
+            writer.writeheader()
+            writer.writerows(users)
+
+    except:
+        print('Please check the database')
+
+
+""" MENUS """
+def start_menu(message):
+    try:
+        markup = types.ReplyKeyboardMarkup(row_width=1)
+        item = types.KeyboardButton('بریم برای ثبت نام ✅')
+        markup.add(item)
+        bot.send_message(message.chat.id, 'بریم برای ثبت نام؟', reply_markup=markup)
+
+    except:
+        error(message)
+
+def league_menu(message):
+    try:
+        markup = types.ReplyKeyboardMarkup(row_width=1)
+        item1 = types.KeyboardButton('لیگ 1')
+        item2 = types.KeyboardButton('لیگ 2')
+        item3 = types.KeyboardButton('لیگ 3')
+        markup.add(item1, item2, item3)
+        bot.send_message(message.chat.id, 'لیگ نمایانگر گروهی از دوستان شماست که باهم ', reply_markup=markup)
+
+    except:
+        error(message)
+
+
+
+# Start handler
+@bot.message_handler(commands=['start'])
+def handle_start(message):
+    try:
+        # Saving the user
+        global users
+        users[message.chat.id] = {}
+
+        #Setting the menu
+        start_menu(message)
+
+    except:
+        error(message)
+
+# Sign-up section
+@bot.message_handler(func=lambda msessage: message.text=='بریم برای ثبت نام ✅')
+def signup_1(message):
+    try:
+        bot.send_message('لطفا نام خود را وارد کنید')
+        bot.register_next_step_handler(message, signup_2)
+
+    except:
+        error(message)
+
+def signup_2(message):
+    try:
+        global users
+        name = message.text
+        users[message.chat.id]['Name'] = name
+
+        bot.send_message('لطفا نام کامل کتابی که می خواهید آنرا مطالعه کنید را وارد کنید.')
+        bot.register_next_step_handler(message, signup_3)
+
+    except:
+        error(message)
+
+def signup_3(message):
+    try:
+        global users
+        book = message.text
+        users[message.chat.id]['Book'] = book
+
+        bot.send_message('لطفا لیگی که مایل به عضویت در آن هستید را انتخاب کنید.')
+
+        bot.register_next_step_handler(message, signup_4)
+
+    except:
+        error(message)
+
+def signup_4(message):
+    try:
+        global users
+        name = message.text
+        users[message.chat.id]['League'] = name
+
+        bot.send_message('لطفا نام کامل کتابی که می خواهید آنرا مطالعه کنید را وارد کنید.')
+        bot.register_next_step_handler(message, signup_3)
+
+    except:
+        error(message)
+
