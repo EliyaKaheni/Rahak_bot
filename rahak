@@ -1,22 +1,22 @@
-import csv
+import ast
 import telebot
 import datetime
 from telebot import types
 from persiantools.jdatetime import JalaliDate
 
-BOT_ID = 'shhhhhhhhh. thats a secret.'
+BOT_ID = 'IWontTellYou'
 bot = telebot.TeleBot(BOT_ID)
 
 # Users temp database
 users = {128402264: {'Name': 'ایلیا کاهنی', 'Uni': 'دانشگاه تهران', 'Field': 'علوم کامپیوتر', 'League': 'چرخک ⚙️', 'Book':[]}}
 cache = {}
+users_cache = {}
 
 # Reading class
 class Reading:
     book_name = ''
     reading_dates = []
     page = 0
-    goal = 0
 
 # Leagues
 Leagues = ['موشک 🚀', 'چرخک ⚙️']
@@ -29,38 +29,99 @@ def error(message):
 """ BASIC FUNCTIONS """
 def been_before(s, l):
     loc = 0
+    if len(l)==0:
+        return -1
     for i in l:
         if i.name==s:
             return loc
         loc += 1
     return -1
 
+def my_progress_baby(l_sh, l):
+    try:
+        if len(l) == 0:
+            return 0
+
+        l = sorted(l, reverse=True)
+
+        i = 0
+        days = []
+
+        while len(l) > i:
+            year, month, day = map(int, l[0].split('-'))
+            d = JalaliDate(year, month, day)
+
+            if l_sh - d >= datetime.timedelta(1):
+                break
+
+            days.append(l[i])
+            i+=1
+
+        return days
+
+    except:
+        print('Erorr in my_progress_baby function!')
+
+def last_shanbe():
+    try:
+        last_shanbeh = JalaliDate.today()
+        while(JalaliDate.weekday(last_shanbeh) != 0):
+            last_shanbeh -= datetime.timedelta(1)
+
+        return last_shanbeh
+
+    except:
+        print('Erorr in last_shanbe function!')
+
+def my_progress(message):
+    try:
+        global users
+
+        last_shanbeh = last_shanbe()
+        days = []
+
+        for book in users[message.chat.id]['Book']:
+            l = book.reading_dates
+            days = list(set(my_progress_baby(last_shanbeh, l)) | set(days))
+
+        return len(days)
+
+    except:
+        error(message)
 
 """ DATABASE MANAGEMENT """
-def Read_DataBase():
-    try:
-        with open('users.csv', mode='r') as infile:
-            reader = csv.reader(infile)
-            temp = {rows[0]:[rows[1], rows[2], rows[3]] for rows in reader}
+def Read_DataBase(myfile):
+    # try:
+    with open(f'{myfile}.txt', mode='r') as file:
+        content = file.read().strip()
+        return ast.literal_eval(content)
+    # except:
+    #     print('Please check the database, reading problem')
 
-        print(temp)
-        return temp
+def Write_DataBase(users, myfile):
+    try:
+        with open(f'{myfile}.txt', mode='w') as file:
+            file.write(str(users))
 
     except:
-        print('Please check the database')
+        print('Please check the database, writing problem')
 
-def Write_DataBase(users):
-    try:
-        field_names = ['ID', 'Name', 'University', 'Field', 'Book', 'League']
+def add_user_to_database(users_cache, id):
+    if users_cache[id]['League'] == 'چرخک ⚙️':
+        users = Read_DataBase('Charkhak')
+    else:
+        users = Read_DataBase('Mooshak')
 
-        with open('users.csv', 'w') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames = field_names)
-            writer.writeheader()
-            writer.writerows(users)
+    users[id]['Name'] = users_cache[id]['Name']
+    users[id]['Uni'] = users_cache[id]['Uni']
+    users[id]['Field'] = users_cache[id]['Field']
+    users[id]['League'] = users_cache[id]['League']
+    users[id]['Book'] = users_cache[id]['Book']
 
-    except:
-        print('Please check the database')
-
+    if users_cache[id]['League'] == 'چرخک ⚙️':
+        Write_DataBase(users, 'Charkhak')
+    else:
+        Write_DataBase(users, 'Mooshak')
 
 """ MENUS """
 
@@ -153,8 +214,8 @@ def book_menu(message):
 def handle_start(message):
     try:
         # Saving the user
-        global users
-        users[message.chat.id] = {}
+        global users_cache
+        users_cache[message.chat.id] = {}
 
         #Setting the menu
         bot.send_message(message.chat.id, 'سلام :) \nبه رهک خوش اومدین. لطفا مراحل ثبت نام رو طی کنین.')
@@ -176,9 +237,9 @@ def signup_1(message):
 
 def signup_2(message):
     try:
-        global users
+        global users_cache
         name = message.text
-        users[message.chat.id]['Name'] = name
+        users_cache[message.chat.id]['Name'] = name
 
         uni_menu(message)
         bot.register_next_step_handler(message, signup_3)
@@ -188,9 +249,9 @@ def signup_2(message):
 
 def signup_3(message):
     try:
-        global users
+        global users_cache
         university = message.text
-        users[message.chat.id]['Uni'] = university
+        users_cache[message.chat.id]['Uni'] = university
 
         bot.send_message(message.chat.id, 'رشته تحصیلیتون رو بنویسید')
         bot.register_next_step_handler(message, signup_4)
@@ -200,9 +261,9 @@ def signup_3(message):
 
 def signup_4(message):
     try:
-        global users
+        global users_cache
         field = message.text
-        users[message.chat.id]['Field'] = field
+        users_cache[message.chat.id]['Field'] = field
 
         bot.send_message(message.chat.id, 'گروه کتابخوانی رهک دوتا لیگ داره که با هم در پایبند بودن به کتابخوانی رقابت میکنن. لیگ موشک و لیگ چرخک.\nموشکی ها انتخاب میکنن که در هفته چهار الی هفت روز مطالعه داشته باشن و چرخکی ها تصمیم دارن در هفته یک الی سه روز مطالعه کنند.')
         leagues_menu(message)
@@ -212,15 +273,18 @@ def signup_4(message):
 @bot.callback_query_handler(func=lambda call: True)
 def signup_5(call):
     try:
-        global users
+        global users_cache
 
         if call.data in Leagues:
             bot.answer_callback_query(
                 call.id, f'{call.data} :انتخاب شد')
             leagues = call.data
-            users[call.message.chat.id]['League'] = leagues
+            users_cache[call.message.chat.id]['League'] = leagues
 
         bot.send_message(call.message.chat.id, 'تبریک میگم شما دیگه عضوی از رهک هستید. به یاد داشته باشید که در صورتی که پونزده روز بدون ثبت هیچ مطالعه ای در گروه عضو باشید، عضویت شما لغو میشه.')
+        users_cache[call.message.chat.id]['Book'] = []
+
+        add_user_to_database(users_cache, call.message.chat.id)
 
         main_menu(call.message)
 
@@ -273,58 +337,57 @@ def add_book1(message):
         global cache
         book_name = message.text
         cache[message.chat.id].append(book_name)
-        bot.send_message(message.chat.id, f'کتاب {book_name} با موفقیت به لیست کتاب های شما اضافه شد. قصد دارید چند صفحه از این کتاب را مطالعه کنید؟')
-        bot.register_next_step_handler(message, add_book2)
-
-    except:
-        error(message)
-
-def add_book2(message):
-    try:
-        global cache
-        goal = int(message.text)
-        cache[message.chat.id].append(goal)
-        bot.send_message(message.chat.id, 'چند صفحه از آنرا مطالعه کرده اید و مایل به ثبت آن هستید؟')
+        bot.send_message(message.chat.id, f'کتاب {book_name} با موفقیت به لیست کتابهای شما اضافه شد. لطفا تعداد صفحه ای از آن را که مطالعه کرده اید، را ارسال کنید.')
         bot.register_next_step_handler(message, note_data)
 
     except:
         error(message)
 
 def note_data(message):
-    try:
-        global users, cache
+    # try:
+    global cache
 
-        loc = been_before(cache[message.chat.id][1], users[message.chat.id]['Book'])
+    users_charkhak = Read_DataBase('Charkhak')
+    users_mooshak = Read_DataBase('Mooshak')
+    users = {}
+    if message.chat.id in users_charkhak.keys():
+        users = users_charkhak
+    else:
+        users = users_mooshak
 
-        if loc == -1:
-            temp = Reading()
-            temp.reading_dates.append(cache[message.chat.id][0])
-            temp.name = cache[message.chat.id][1]
-            temp.page += int(message.text)
-            temp.goal = cache[message.chat.id][2]
+    print(users)
 
-            users[message.chat.id]['Book'].append(temp)
-            del cache[message.chat.id]
+    loc = been_before(cache[message.chat.id][1], users[message.chat.id]['Book'])
 
-        else:
-            users[message.chat.id]['Book'][loc].page += int(message.text)
-            users[message.chat.id]['Book'][loc].reading_dates.append(cache[message.chat.id][0])
+    if loc == -1:
+        temp = Reading()
+        temp.reading_dates.append(cache[message.chat.id][0])
+        temp.name = cache[message.chat.id][1]
+        temp.page += int(message.text)
 
-        main_menu(message)
+        users[message.chat.id]['Book'].append(temp)
+        del cache[message.chat.id]
 
-    except:
-        error(message)
+    else:
+        users[message.chat.id]['Book'][loc].page += int(message.text)
+        users[message.chat.id]['Book'][loc].reading_dates.append(cache[message.chat.id][0])
+
+    if users[message.chat.id]['League'] == 'چرخک ⚙️':
+        Write_DataBase(users, 'Charkhak')
+    else:
+        Write_DataBase(users, 'Mooshak')
+
+    main_menu(message)
+
+    # except:
+    #     error(message)
 
 @bot.message_handler(func=lambda message: message.text=='جمع آمار خودم')
-def my_progress(message):
+def indivisual_progress(message):
     global users
-    goal_sum, read_sum = 0, 0
 
-    for book in users[message.chat.id]['Book']:
-        goal_sum += book.goal
-        read_sum += book.page
-
-    bot.send_message(message.chat.id, f'شما {read_sum} صفحه از {goal_sum} صفحه که برای آن هدف گذاری کرده اید را مطالعه کرده اید.')
+    days = my_progress(message)
+    bot.send_message(message.chat.id, f'شما در هفته تا کنون {days} روز مطالعه کرده اید.')
 
 @bot.message_handler(func=lambda message: message.text=='حذف کتاب')
 def remove_book1(message):
