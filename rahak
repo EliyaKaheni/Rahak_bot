@@ -1,14 +1,13 @@
-import ast
+import pandas as pd
 import telebot
 import datetime
 from telebot import types
 from persiantools.jdatetime import JalaliDate
 
-BOT_ID = 'IWontTellYou'
+BOT_ID = 'BoomBoom'
 bot = telebot.TeleBot(BOT_ID)
 
 # Users temp database
-users = {128402264: {'Name': 'ایلیا کاهنی', 'Uni': 'دانشگاه تهران', 'Field': 'علوم کامپیوتر', 'League': 'چرخک ⚙️', 'Book':[]}}
 cache = {}
 users_cache = {}
 
@@ -27,9 +26,9 @@ def error(message):
 
 
 """ BASIC FUNCTIONS """
-def been_before(s, l):
+def been_before(s, l, id):
     loc = 0
-    if len(l)==0:
+    if str(l)=='0    []\nName: Books, dtype: object':
         return -1
     for i in l:
         if i.name==s:
@@ -91,37 +90,49 @@ def my_progress(message):
 
 """ DATABASE MANAGEMENT """
 def Read_DataBase(myfile):
-    # try:
-    with open(f'{myfile}.txt', mode='r') as file:
-        content = file.read().strip()
-        return ast.literal_eval(content)
-    # except:
-    #     print('Please check the database, reading problem')
+    try:
+        return pd.read_csv(f'{myfile}.csv')
+
+    except:
+        print('Please check the database, reading problem')
 
 def Write_DataBase(users, myfile):
     try:
-        with open(f'{myfile}.txt', mode='w') as file:
-            file.write(str(users))
+        users.drop(users.columns[users.columns.str.contains(
+        'unnamed', case=False)], axis=1, inplace=True)
+        users.to_csv(f'{myfile}.csv')
 
     except:
         print('Please check the database, writing problem')
 
 def add_user_to_database(users_cache, id):
-    if users_cache[id]['League'] == 'چرخک ⚙️':
-        users = Read_DataBase('Charkhak')
-    else:
-        users = Read_DataBase('Mooshak')
+    try:
+        if users_cache[id]['League'] == 'چرخک ⚙️':
+            users = Read_DataBase('Charkhak')
+        else:
+            users = Read_DataBase('Mooshak')
 
-    users[id]['Name'] = users_cache[id]['Name']
-    users[id]['Uni'] = users_cache[id]['Uni']
-    users[id]['Field'] = users_cache[id]['Field']
-    users[id]['League'] = users_cache[id]['League']
-    users[id]['Book'] = users_cache[id]['Book']
+        new_user = {'ID':str(id), 'Name':users_cache[id]['Name'],
+        'Uni':users_cache[id]['Uni'], 'Field':users_cache[id]['Field'],
+        'League':users_cache[id]['League'], 'Books':users_cache[id]['Book']}
 
-    if users_cache[id]['League'] == 'چرخک ⚙️':
-        Write_DataBase(users, 'Charkhak')
-    else:
-        Write_DataBase(users, 'Mooshak')
+        new_user_df = pd.DataFrame.from_dict(new_user)
+
+        new_user_df.loc[0] = [str(id), users_cache[id]['Name'], users_cache[id]['Uni'],
+        users_cache[id]['Field'], users_cache[id]['League'], users_cache[id]['Book']]
+
+        print(new_user_df)
+
+        users = pd.concat([users, new_user_df], ignore_index=True)
+        users.reset_index()
+
+        if users_cache[id]['League'] == 'چرخک ⚙️':
+            Write_DataBase(users, 'Charkhak')
+        else:
+            Write_DataBase(users, 'Mooshak')
+
+    except:
+        print('Adding user failed.')
 
 """ MENUS """
 
@@ -189,23 +200,30 @@ def main_menu(message):
         error(message)
 
 def book_menu(message):
-    try:
-        global users
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    # try:
+    users_charkhak = Read_DataBase('Charkhak')
+    users_mooshak = Read_DataBase('Mooshak')
+    users = pd.DataFrame()
+    if str(id) in users_charkhak['ID']:
+        users = users_charkhak
+    else:
+        users = users_mooshak
 
-        if users[message.chat.id]['Book']:
-            for book in users[message.chat.id]['Book']:
-                item = types.KeyboardButton(book.name)
-                markup.add(item)
 
-        add_button = types.KeyboardButton('افزودن کتاب جدید')
-        markup.add(add_button)
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    if not str(users['Books'].loc[users['ID']==message.chat.id])=='0    []\nName: Books, dtype: object':
+        for book in users['Books'].loc[users['ID']==message.chat.id]:
+            item = types.KeyboardButton(book.name)
+            markup.add(item)
 
-        bot.send_message(
-            message.chat.id, 'کتابی که مطالعه کردین رو انتخاب کنین.', reply_markup=markup)
+    add_button = types.KeyboardButton('افزودن کتاب جدید')
+    markup.add(add_button)
 
-    except:
-        error(message)
+    bot.send_message(
+        message.chat.id, 'کتابی که مطالعه کردین رو انتخاب کنین.', reply_markup=markup)
+
+    # except:
+    #     error(message)
 
 
 """Sign-up Section"""
@@ -303,18 +321,18 @@ def date_set(message):
         error(message)
 
 def book_set(message):
-    try:
-        global cache
-        cache[message.chat.id] = []
-        date = message.text
-        cache[message.chat.id].append(date)
+    # try:
+        # global cache
+    cache[message.chat.id] = []
+    date = message.text
+    cache[message.chat.id].append(date)
 
-        book_menu(message)
+    book_menu(message)
 
-        bot.register_next_step_handler(message, page_set)
+    bot.register_next_step_handler(message, page_set)
 
-    except:
-        error(message)
+    # except:
+    #     error(message)
 
 def page_set(message):
     try:
@@ -346,33 +364,35 @@ def add_book1(message):
 def note_data(message):
     # try:
     global cache
+    id = message.chat.id
 
     users_charkhak = Read_DataBase('Charkhak')
     users_mooshak = Read_DataBase('Mooshak')
-    users = {}
-    if message.chat.id in users_charkhak.keys():
+    users = pd.DataFrame()
+    if str(id) in users_charkhak['ID']:
         users = users_charkhak
     else:
         users = users_mooshak
 
     print(users)
 
-    loc = been_before(cache[message.chat.id][1], users[message.chat.id]['Book'])
+    loc = been_before(cache[id][1], users['Books'].loc[users['ID']==id], message.chat.id)
+    print(loc)
 
     if loc == -1:
         temp = Reading()
-        temp.reading_dates.append(cache[message.chat.id][0])
-        temp.name = cache[message.chat.id][1]
+        temp.reading_dates.append(cache[id][0])
+        temp.name = cache[id][1]
         temp.page += int(message.text)
 
-        users[message.chat.id]['Book'].append(temp)
-        del cache[message.chat.id]
+        list(users['Books'].loc[users['ID']==id]).append(temp)
+        del cache[id]
 
     else:
-        users[message.chat.id]['Book'][loc].page += int(message.text)
-        users[message.chat.id]['Book'][loc].reading_dates.append(cache[message.chat.id][0])
+        list(users['Books'].loc[users['ID']==id])[loc].page += int(message.text)
+        list(users['Books'].loc[users['ID']==id])[loc].reading_dates.append(cache[id][0])
 
-    if users[message.chat.id]['League'] == 'چرخک ⚙️':
+    if str(users['League'].loc[users['ID']==id]) == 'چرخک ⚙️':
         Write_DataBase(users, 'Charkhak')
     else:
         Write_DataBase(users, 'Mooshak')
