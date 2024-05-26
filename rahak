@@ -1,21 +1,16 @@
-import pandas as pd
+import ast
 import telebot
 import datetime
+import pandas as pd
 from telebot import types
 from persiantools.jdatetime import JalaliDate
 
-BOT_ID = 'BoomBoom'
+BOT_ID = '7047772089:AAGHg_wXHy4hj5BnzTbe2z1Ei_PkcTjts5g'
 bot = telebot.TeleBot(BOT_ID)
 
 # Users temp database
 cache = {}
 users_cache = {}
-
-# Reading class
-class Reading:
-    book_name = ''
-    reading_dates = []
-    page = 0
 
 # Leagues
 Leagues = ['موشک 🚀', 'چرخک ⚙️']
@@ -26,16 +21,6 @@ def error(message):
 
 
 """ BASIC FUNCTIONS """
-def been_before(s, l, id):
-    loc = 0
-    if str(l)=='0    []\nName: Books, dtype: object':
-        return -1
-    for i in l:
-        if i.name==s:
-            return loc
-        loc += 1
-    return -1
-
 def my_progress_baby(l_sh, l):
     try:
         if len(l) == 0:
@@ -112,16 +97,14 @@ def add_user_to_database(users_cache, id):
         else:
             users = Read_DataBase('Mooshak')
 
-        new_user = {'ID':str(id), 'Name':users_cache[id]['Name'],
+        new_user = {'ID':id, 'Name':users_cache[id]['Name'],
         'Uni':users_cache[id]['Uni'], 'Field':users_cache[id]['Field'],
         'League':users_cache[id]['League'], 'Books':users_cache[id]['Book']}
 
         new_user_df = pd.DataFrame.from_dict(new_user)
 
-        new_user_df.loc[0] = [str(id), users_cache[id]['Name'], users_cache[id]['Uni'],
+        new_user_df.loc[0] = [id, users_cache[id]['Name'], users_cache[id]['Uni'],
         users_cache[id]['Field'], users_cache[id]['League'], users_cache[id]['Book']]
-
-        print(new_user_df)
 
         users = pd.concat([users, new_user_df], ignore_index=True)
         users.reset_index()
@@ -200,30 +183,77 @@ def main_menu(message):
         error(message)
 
 def book_menu(message):
-    # try:
-    users_charkhak = Read_DataBase('Charkhak')
-    users_mooshak = Read_DataBase('Mooshak')
-    users = pd.DataFrame()
-    if str(id) in users_charkhak['ID']:
-        users = users_charkhak
-    else:
-        users = users_mooshak
+    try:
+        users_charkhak = Read_DataBase('Charkhak')
+        users_mooshak = Read_DataBase('Mooshak')
 
+        users = None
+        if message.chat.id in users_charkhak['ID'].values:
+            users = users_charkhak
+        elif message.chat.id in users_mooshak['ID'].values:
+            users = users_mooshak
+        else:
+            bot.send_message(message.chat.id, "کاربر یافت نشد.")
+            return
 
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    if not str(users['Books'].loc[users['ID']==message.chat.id])=='0    []\nName: Books, dtype: object':
-        for book in users['Books'].loc[users['ID']==message.chat.id]:
-            item = types.KeyboardButton(book.name)
+        print(users.loc[users['ID'] == message.chat.id, 'Books'])
+
+        if len(users.loc[users['ID'] == message.chat.id, 'Books'].values)!=0:
+            user_books = eval(users.loc[users['ID'] == message.chat.id, 'Books'].values[0])
+        else:
+            user_books = {}
+
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+
+        for book in user_books.keys():
+            item = types.KeyboardButton(book)
             markup.add(item)
 
-    add_button = types.KeyboardButton('افزودن کتاب جدید')
-    markup.add(add_button)
+        add_button = types.KeyboardButton('افزودن کتاب جدید')
+        markup.add(add_button)
 
-    bot.send_message(
-        message.chat.id, 'کتابی که مطالعه کردین رو انتخاب کنین.', reply_markup=markup)
+        bot.send_message(message.chat.id, 'کتابی که مطالعه کردین رو انتخاب کنین.', reply_markup=markup)
 
-    # except:
-    #     error(message)
+    except Exception as e:
+        print(f'Error in book_menu: {e}')
+        error(message)
+
+def delete_book_menu(message):
+    try:
+      users_charkhak = Read_DataBase('Charkhak')
+      users_mooshak = Read_DataBase('Mooshak')
+      
+      users = None
+      if message.chat.id in users_charkhak['ID'].values:
+          users = users_charkhak
+      elif message.chat.id in users_mooshak['ID'].values:
+          users = users_mooshak
+      else:
+          bot.send_message(message.chat.id, "کاربر یافت نشد.")
+          return
+
+      user_books_str = users.loc[users['ID'] == message.chat.id, 'Books'].values[0]
+      
+      if user_books_str:
+          user_books = ast.literal_eval(user_books_str)  # Safely evaluate the string to a dictionary
+      else:
+          user_books = {}
+
+      markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+
+      for book in user_books.keys():
+          item = types.KeyboardButton(book)
+          markup.add(item)
+
+      cancel_button = types.KeyboardButton('لغو')
+      markup.add(cancel_button)
+
+      bot.send_message(message.chat.id, 'کتابی که می‌خواهید حذف کنید را انتخاب کنید.', reply_markup=markup)
+      bot.register_next_step_handler(message, remove_book2)
+
+    except Exception as e:
+        print(f'Error in delete_book_menu: {e}')
+        error(message)
 
 
 """Sign-up Section"""
@@ -231,11 +261,9 @@ def book_menu(message):
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     try:
-        # Saving the user
         global users_cache
         users_cache[message.chat.id] = {}
 
-        #Setting the menu
         bot.send_message(message.chat.id, 'سلام :) \nبه رهک خوش اومدین. لطفا مراحل ثبت نام رو طی کنین.')
 
         start_menu(message)
@@ -300,7 +328,7 @@ def signup_5(call):
             users_cache[call.message.chat.id]['League'] = leagues
 
         bot.send_message(call.message.chat.id, 'تبریک میگم شما دیگه عضوی از رهک هستید. به یاد داشته باشید که در صورتی که پونزده روز بدون ثبت هیچ مطالعه ای در گروه عضو باشید، عضویت شما لغو میشه.')
-        users_cache[call.message.chat.id]['Book'] = []
+        users_cache[call.message.chat.id]['Book'] = {}
 
         add_user_to_database(users_cache, call.message.chat.id)
 
@@ -321,18 +349,18 @@ def date_set(message):
         error(message)
 
 def book_set(message):
-    # try:
-        # global cache
-    cache[message.chat.id] = []
-    date = message.text
-    cache[message.chat.id].append(date)
+    try:
+      global cache
+      cache[message.chat.id] = []
+      date = message.text
+      cache[message.chat.id].append(date)
 
-    book_menu(message)
+      book_menu(message)
 
-    bot.register_next_step_handler(message, page_set)
+      bot.register_next_step_handler(message, page_set)
 
-    # except:
-    #     error(message)
+    except:
+        error(message)
 
 def page_set(message):
     try:
@@ -362,45 +390,56 @@ def add_book1(message):
         error(message)
 
 def note_data(message):
-    # try:
-    global cache
-    id = message.chat.id
+    try:
+        global cache
+        id = int(message.chat.id)
 
-    users_charkhak = Read_DataBase('Charkhak')
-    users_mooshak = Read_DataBase('Mooshak')
-    users = pd.DataFrame()
-    if str(id) in users_charkhak['ID']:
-        users = users_charkhak
-    else:
-        users = users_mooshak
+        users_charkhak = Read_DataBase('Charkhak')
+        users_mooshak = Read_DataBase('Mooshak')
 
-    print(users)
+        users = None
+        if id in users_charkhak['ID'].values:
+            League = 'C'
+            users = users_charkhak
+        elif id in users_mooshak['ID'].values:
+            League = 'M'
+            users = users_mooshak
+        else:
+            bot.send_message(message.chat.id, "کاربر یافت نشد.")
+            return
 
-    loc = been_before(cache[id][1], users['Books'].loc[users['ID']==id], message.chat.id)
-    print(loc)
+        
+        user_books_str = users.loc[users['ID'] == id, 'Books'].values[0]
 
-    if loc == -1:
-        temp = Reading()
-        temp.reading_dates.append(cache[id][0])
-        temp.name = cache[id][1]
-        temp.page += int(message.text)
+        if user_books_str:
+            user_books = ast.literal_eval(user_books_str)  
+        else:
+            user_books = {}
 
-        list(users['Books'].loc[users['ID']==id]).append(temp)
+        book_name = cache[id][1]
+        pages_read = int(message.text)
+        date_read = cache[id][0]
+
+        if book_name not in user_books:
+            user_books[book_name] = [[date_read], pages_read]
+        else:
+            user_books[book_name][0].append(date_read)
+            user_books[book_name][1] += pages_read
+
+        users.loc[users['ID'] == id, 'Books'] = str(user_books)
+
+        if League == 'C':
+            Write_DataBase(users, 'Charkhak')
+        else:
+            Write_DataBase(users, 'Mooshak')
+
         del cache[id]
+        main_menu(message)
 
-    else:
-        list(users['Books'].loc[users['ID']==id])[loc].page += int(message.text)
-        list(users['Books'].loc[users['ID']==id])[loc].reading_dates.append(cache[id][0])
+    except Exception as e:
+        print(f'Error in note_data: {e}')
+        error(message)
 
-    if str(users['League'].loc[users['ID']==id]) == 'چرخک ⚙️':
-        Write_DataBase(users, 'Charkhak')
-    else:
-        Write_DataBase(users, 'Mooshak')
-
-    main_menu(message)
-
-    # except:
-    #     error(message)
 
 @bot.message_handler(func=lambda message: message.text=='جمع آمار خودم')
 def indivisual_progress(message):
@@ -411,6 +450,55 @@ def indivisual_progress(message):
 
 @bot.message_handler(func=lambda message: message.text=='حذف کتاب')
 def remove_book1(message):
-    pass
+    delete_book_menu(message)
+
+def remove_book2(message):
+    try:
+        book_to_delete = message.text
+        if book_to_delete == 'لغو':
+            main_menu(message)
+            return
+
+        users_charkhak = Read_DataBase('Charkhak')
+        users_mooshak = Read_DataBase('Mooshak')
+        
+        users = None
+        if message.chat.id in users_charkhak['ID'].values:
+            League = 'C'
+            users = users_charkhak
+        elif message.chat.id in users_mooshak['ID'].values:
+            League = 'M'
+            users = users_mooshak
+        else:
+            bot.send_message(message.chat.id, "کاربر یافت نشد.")
+            return
+
+        user_books_str = users.loc[users['ID'] == message.chat.id, 'Books'].values[0]
+
+        if user_books_str:
+            user_books = ast.literal_eval(user_books_str)  # Safely evaluate the string to a dictionary
+        else:
+            bot.send_message(message.chat.id, "کتابی برای حذف یافت نشد.")
+            main_menu(message)
+            return
+
+        if book_to_delete in user_books:
+            del user_books[book_to_delete]
+            users.loc[users['ID'] == message.chat.id, 'Books'] = str(user_books)
+
+            if League == 'C':
+                Write_DataBase(users, 'Charkhak')
+            else:
+                Write_DataBase(users, 'Mooshak')
+
+            bot.send_message(message.chat.id, f'کتاب {book_to_delete} با موفقیت حذف شد.')
+        else:
+            bot.send_message(message.chat.id, 'کتاب در لیست شما یافت نشد.')
+
+        main_menu(message)
+
+    except Exception as e:
+        print(f'Error in delete_book: {e}')
+        error(message)
 
 bot.polling()
