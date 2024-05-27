@@ -66,14 +66,23 @@ def days_read(id, users):
       days = []
       user_books = eval(users.loc[users['ID'] == id	, 'Books'].values[0])
       users_reading = users['Books'].loc[users['ID']==id]
-      for book in user_books:
-          l = user_books[book]
-          for date in l:
-            days = list(set(my_progress_baby(last_shanbeh, l)) | set([date]))
+      pages_read_by_person = 0
+      for reading in users_reading:
+        reading = eval(reading)
+        for name, reading_list in reading.items():
+          for date, pages in reading_list.items():
+              year, month, day = map(int, date.split('-'))
+              d = JalaliDate(year, month, day)
+
+              if (last_shanbe() - d >= datetime.timedelta(1)) and (date not in days):
+                  break
+
+              days.append(date)
+
       return len(days)
 
     except Exception as e:
-        print(f'Error in my_progress : {e}')
+        print(f'Error in days_read : {e}')
         error(id)
 
 def pages_read(id, users):
@@ -94,13 +103,13 @@ def pages_read(id, users):
                 break
 
             pages_read_by_person += pages
-        
+
     return pages_read_by_person
-      
+
   except Exception as e:
-    print(f'Error in my_progress : {e}')
+    print(f'Error in pages_read : {e}')
     error(id)
-        
+
 """ DATABASE MANAGEMENT """
 def Read_DataBase(myfile):
     try:
@@ -154,7 +163,8 @@ def start_menu(message):
         markup.add(item)
         bot.send_message(message.chat.id, 'بریم برای ثبت نام؟', reply_markup=markup)
 
-    except:
+    except Exception as e:
+        print(f'Error in start_menu: {e}')
         error(message)
 
 def leagues_menu(message):
@@ -170,7 +180,8 @@ def leagues_menu(message):
         bot.send_message(
             message.chat.id, 'لیگتون رو انتخاب کنین.', reply_markup=markup)
 
-    except:
+    except Exception as e:
+        print(f'Error in leagues_menu: {e}')
         error(message)
 
 def uni_menu(message):
@@ -181,7 +192,8 @@ def uni_menu(message):
         markup.add(item1, item2)
         bot.send_message(message.chat.id, 'مشغول به تحصیل در کدوم دانشگاهید؟', reply_markup=markup)
 
-    except:
+    except Exception as e:
+        print(f'Error in uni_menu: {e}')
         error(message)
 
 def date_menu(message):
@@ -195,7 +207,8 @@ def date_menu(message):
 
         bot.send_message(message.chat.id, 'مایل به ثبت کتابخوانی در چه تاریخی هستید؟', reply_markup=markup)
 
-    except:
+    except Exception as e:
+        print(f'Error in date_menu: {e}')
         error(message)
 
 def main_menu(message):
@@ -203,16 +216,18 @@ def main_menu(message):
         global admin_id
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         item1 = types.KeyboardButton('ثبت مطالعه')
-        item2 = types.KeyboardButton('جمع آمار خودم')
+        item2 = types.KeyboardButton('مشاهده آمار')
         item3 = types.KeyboardButton('حذف کتاب')
-        markup.add(item1, item2, item3)
+        item4 = types.KeyboardButton('رهک چیست')
+        markup.add(item1, item2)
 
         if str(message.chat.id) == admin_id:
-          item4 = types.KeyboardButton('تعیین هدف')
-          markup.add(item4)
+          item5 = types.KeyboardButton('تعیین هدف')
+          markup.add(item5)
 
         bot.send_message(message.chat.id, 'شما در منوی اصلی قرار دارید', reply_markup=markup)
-    except:
+    except Exception as e:
+        print(f'Error in main_menu: {e}')
         error(message)
 
 def book_menu(message):
@@ -266,7 +281,7 @@ def delete_book_menu(message):
       user_books_str = users.loc[users['ID'] == message.chat.id, 'Books'].values[0]
 
       if user_books_str:
-          user_books = ast.literal_eval(user_books_str)  
+          user_books = ast.literal_eval(user_books_str)
       else:
           user_books = {}
 
@@ -286,6 +301,19 @@ def delete_book_menu(message):
         print(f'Error in delete_book_menu: {e}')
         error(message)
 
+def stats_menu(message):
+    try:
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        item1 = types.KeyboardButton('آمار پیشرفت خودم')
+        item2 = types.KeyboardButton('آمار پیشرفت لیگ')
+        item3 = types.KeyboardButton('هدف جمعی')
+
+        markup.add(item1, item2, item3)
+
+        bot.send_message(message.chat.id, 'در منوی مشاهده آمار قرار دارید.', reply_markup=markup)
+    except Exception as e:
+        print(f'Error in stats_menu: {e}')
+        error(message)  
 
 """Sign-up Section"""
 # Start handler
@@ -470,7 +498,7 @@ def note_data(message):
             user_books[book_name] = {}
             user_books[book_name][date_read] = pages_read
         else:
-            user_books[book_name][date_read] = pages_read
+            user_books[book_name][date_read] += pages_read
 
         users.loc[users['ID'] == id, 'Books'] = str(user_books)
 
@@ -486,16 +514,60 @@ def note_data(message):
         print(f'Error in note_data: {e}')
         error(message)
 
+@bot.message_handler(func=lambda message: message.text=='مشاهده آمار')
+def statistics(message):
+  stats_menu(message)
 
-@bot.message_handler(func=lambda message: message.text=='جمع آمار خودم')
+
+@bot.message_handler(func=lambda message: message.text=='آمار پیشرفت خودم')
 def indivisual_progress(message):
     try:
-      global users
-      days = my_progress(message)
+      users_charkhak = Read_DataBase('Charkhak')
+      users_mooshak = Read_DataBase('Mooshak')
+
+      users = None
+      if message.chat.id in users_charkhak['ID'].values:
+          League = 'C'
+          users = users_charkhak
+      elif message.chat.id in users_mooshak['ID'].values:
+          League = 'M'
+          users = users_mooshak
+      else:
+          bot.send_message(message.chat.id, "کاربر یافت نشد.")
+          return
+      days = days_read(message.chat.id, users)
       bot.send_message(message.chat.id, f'شما در هفته تا کنون {days} روز مطالعه کرده اید.')
-    
+
     except Exception as e:
       print(f'Error in indivisual_progress: {e}')
+      error(message)
+
+@bot.message_handler(func=lambda message: message.text=='آمار پیشرفت لیگ')
+def league_progress(message):
+  try:
+      users_charkhak = Read_DataBase('Charkhak')
+      users_mooshak = Read_DataBase('Mooshak')
+
+      users = None
+      if message.chat.id in users_charkhak['ID'].values:
+          League = 'C'
+          users = users_charkhak
+      elif message.chat.id in users_mooshak['ID'].values:
+          League = 'M'
+          users = users_mooshak
+      else:
+          bot.send_message(message.chat.id, "کاربر یافت نشد.")
+          return
+      
+      reading_days = []
+      for person in users['ID']:
+          reading_days.append(days_read(person, users))
+      
+      bot.send_message(message.chat.id, str(reading_days))
+
+
+  except Exception as e:
+      print(f'Error in league_progress: {e}')
       error(message)
 
 @bot.message_handler(func=lambda message: message.text=='حذف کتاب')
@@ -526,7 +598,7 @@ def remove_book2(message):
         user_books_str = users.loc[users['ID'] == message.chat.id, 'Books'].values[0]
 
         if user_books_str:
-            user_books = ast.literal_eval(user_books_str) 
+            user_books = ast.literal_eval(user_books_str)
         else:
             bot.send_message(message.chat.id, "کتابی برای حذف یافت نشد.")
             main_menu(message)
@@ -551,7 +623,7 @@ def remove_book2(message):
         print(f'Error in delete_book: {e}')
         error(message)
 
-@bot.message_handler(func= lambda message: message.text=='تعیین هدف') 
+@bot.message_handler(func= lambda message: message.text=='تعیین هدف')
 def goal_set_1(message):
   try:
     bot.send_message(message.chat.id, 'هدف گروه چرخک را وارد کنید')
@@ -601,7 +673,7 @@ def group_goal_situation(message):
     else:
         bot.send_message(message.chat.id, "کاربر یافت نشد.")
         return
-    
+
     all_group_progress = 0
     for id in users['ID']:
         all_group_progress += pages_read(id, users)
@@ -610,7 +682,7 @@ def group_goal_situation(message):
         bot.send_message(message.chat.id, f'{all_group_progress} صفحه از {charkhak_goal} صفحه مطالعه شده است. ')
     else:
         bot.send_message(message.chat.id, f'{all_group_progress} صفحه از {mooshak_goal} صفحه مطالعه شده است. ')
-  
+
   except Exception as e:
     print(f'Error in group_goal_situation: {e}')
     error(message)
