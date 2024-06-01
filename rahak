@@ -1,15 +1,18 @@
 import os
 import io
 import ast
+import time
 import kaleido
 import telebot
 import datetime
+import schedule
+import threading
 import pandas as pd
 from telebot import types
 import plotly.graph_objects as go
 from persiantools.jdatetime import JalaliDate
 
-BOT_ID = '7047772089:AAGHg_wXHy4hj5BnzTbe2z1Ei_PkcTjts5g'
+BOT_ID = 'bloom_bloom_bloom'
 bot = telebot.TeleBot(BOT_ID)
 
 # Users temp database
@@ -74,10 +77,8 @@ def days_read(id, users, last_shanbeh):
               year, month, day = map(int, date.split('-'))
               d = JalaliDate(year, month, day)
 
-              if (last_shanbeh - d >= datetime.timedelta(1)) and (date not in days):
-                  break
-
-              days.append(date)
+              if (last_shanbeh - d < datetime.timedelta(1)) and (date not in days):
+                  days.append(date)
 
       return len(days)
 
@@ -201,6 +202,21 @@ def leagues_chart(charkhak, mooshak):
   except Exception as e:
     print(f'Error in leagues_chart : {e}')
 
+def total_reads_pie(people, days):
+  try:
+    trace = go.Pie(values=days, labels=people, marker={'colors': ['#A2C5DB', '#BBB19A']}, hole=0.5, textinfo='label')
+    fig = go.FigureWidget(trace)
+    fig.update_traces(textinfo='value+label')
+
+    image_bytes = fig.to_image(format='png')
+    image_io = io.BytesIO(image_bytes)
+
+    return image_io.getvalue()
+
+  except Exception as e:
+    print(f'Error in league_pie : {e}')
+
+
 """ DATABASE MANAGEMENT """
 def Read_DataBase(myfile):
     try:
@@ -225,14 +241,14 @@ def add_user_to_database(users_cache, id):
         else:
             users = Read_DataBase('Mooshak')
 
-        new_user = {'ID':id, 'Name':users_cache[id]['Name'],
+        new_user = {'ID':id, 'Name':users_cache[id]['Name'], 'Phone number':users_cache[id]['Phone number'],
         'Uni':users_cache[id]['Uni'], 'Field':users_cache[id]['Field'],
         'League':users_cache[id]['League'], 'Books':users_cache[id]['Book']}
 
         new_user_df = pd.DataFrame.from_dict(new_user)
 
-        new_user_df.loc[0] = [id, users_cache[id]['Name'], users_cache[id]['Uni'],
-        users_cache[id]['Field'], users_cache[id]['League'], users_cache[id]['Book']]
+        new_user_df.loc[0] = [id, users_cache[id]['Name'], users_cache[id]['Phone number'],
+        users_cache[id]['Uni'], users_cache[id]['Field'],users_cache[id]['League'], users_cache[id]['Book']]
 
         users = pd.concat([users, new_user_df], ignore_index=True)
         users.reset_index()
@@ -315,8 +331,10 @@ def main_menu(message):
 
         if str(message.chat.id) == admin_id:
           item5 = types.KeyboardButton('تعیین هدف')
-          item6 = types.KeyboardButton('دانلود دیتا بیس')
-          markup.add(item5, item6)
+          item6 = types.KeyboardButton('آمار ثبت های ماهانه')
+          item7 = types.KeyboardButton('آمار ثبت های هفتگی')
+          item8 = types.KeyboardButton('دانلود دیتابیس')
+          markup.add(item5, item6, item7, item8)
 
         bot.send_message(message.chat.id, 'شما در منوی اصلی قرار دارید', reply_markup=markup)
     except Exception as e:
@@ -439,36 +457,48 @@ def signup_1(message):
       print(f'Error in signup_1: {e}')
       error(message)
 
-
 def signup_2(message):
     try:
         global users_cache
         name = message.text
         users_cache[message.chat.id]['Name'] = name
 
-        uni_menu(message)
         bot.register_next_step_handler(message, signup_3)
+        bot.send_message(message.chat.id, 'لطفا شماره موبایل یا آیدی لگرام خود را وارد کنید')
 
     except Exception as e:
       print(f'Error in signup_2: {e}')
       error(message)
 
-
 def signup_3(message):
     try:
         global users_cache
-        university = message.text
-        users_cache[message.chat.id]['Uni'] = university
+        phone_number = message.text
+        users_cache[message.chat.id]['Phone number'] = phone_number
 
-        bot.send_message(message.chat.id, 'رشته تحصیلیتون رو بنویسید')
+
+        uni_menu(message)
         bot.register_next_step_handler(message, signup_4)
 
     except Exception as e:
       print(f'Error in signup_3: {e}')
       error(message)
 
-
 def signup_4(message):
+    try:
+        global users_cache
+        university = message.text
+        users_cache[message.chat.id]['Uni'] = university
+
+        bot.send_message(message.chat.id, 'رشته تحصیلیتون رو بنویسید')
+        bot.register_next_step_handler(message, signup_5)
+
+    except Exception as e:
+      print(f'Error in signup_4: {e}')
+      error(message)
+
+
+def signup_5(message):
     try:
         global users_cache
         field = message.text
@@ -478,11 +508,11 @@ def signup_4(message):
         leagues_menu(message)
 
     except Exception as e:
-      print(f'Error in signup_4: {e}')
+      print(f'Error in signup_5: {e}')
       error(message)
 
 @bot.callback_query_handler(func=lambda call: True)
-def signup_5(call):
+def signup_6(call):
     try:
         global users_cache
 
@@ -500,7 +530,7 @@ def signup_5(call):
         main_menu(call.message)
 
     except Exception as e:
-      print(f'Error in signup_5: {e}')
+      print(f'Error in signup_6: {e}')
       error(call.message)
 
 
@@ -596,14 +626,20 @@ def note_data(message):
         book_name = cache[id][1]
         pages_read = int(message.text)
         date_read = cache[id][0]
+        print(date_read)
 
         if book_name not in user_books:
             user_books[book_name] = {}
             user_books[book_name][date_read] = pages_read
         else:
-            user_books[book_name][date_read] += pages_read
+            if date_read in user_books[book_name].keys():
+                user_books[book_name][date_read] += pages_read
+            else:
+                user_books[book_name][date_read] = pages_read
 
         users.loc[users['ID'] == id, 'Books'] = str(user_books)
+
+        print('\n--------\n',users)
 
         if League == 'C':
             Write_DataBase(users, 'Charkhak')
@@ -721,15 +757,16 @@ def remove_book2(message):
         print(f'Error in delete_book: {e}')
         error(message)
 
-@bot.message_handler(func= lambda message: (message.text=='دانلود دیتابیس' and message.chat.id == admin_id))
+@bot.message_handler(func= lambda message: message.text=='دانلود دیتابیس' and str(message.chat.id) == admin_id)
 def database_download(message):
   try:
+    print('Boobs')
+
     users_charkhak = Read_DataBase('Charkhak')
     users_mooshak = Read_DataBase('Mooshak')
 
     users_charkhak.to_excel('Charkhak.xlsx')
     users_mooshak.to_excel('Mooshak.xlsx')
-
     with open('Charkhak.xlsx', 'rb') as file:
       bot.send_document(message.chat.id, file)
     with open('Mooshak.xlsx', 'rb') as file:
@@ -742,8 +779,73 @@ def database_download(message):
         print(f'Error in database_download : {e}')
         error(message)
 
+@bot.message_handler(func= lambda message: (message.text=='آمار ثبت های ماهانه' and str(message.chat.id) == admin_id))
+def monthly_reads(message):
+  try:
+    users_charkhak = Read_DataBase('Charkhak')
+    users_mooshak = Read_DataBase('Mooshak')
 
-@bot.message_handler(func= lambda message: (message.text=='تعیین هدف' and message.chat.id == admin_id))
+    charkhak_days = []
+    mooshak_days = []
+    charkhak_people = []
+    mooshak_people = []
+
+    for id, name in zip(users_charkhak['ID'], users_charkhak['Name']):
+      charkhak_days.append(days_read(id, users_charkhak, last_shanbe(JalaliDate.today()-datetime.timedelta(21))))
+      charkhak_people.append(name)
+    for id, name in zip(users_mooshak['ID'], users_mooshak['Name']):
+      mooshak_days.append(days_read(id, users_mooshak, last_shanbe(JalaliDate.today()-datetime.timedelta(21))))
+      mooshak_people.append(name)
+
+    charkhak_people.append('اکبر')
+    charkhak_days.append(2)
+    charkhak_people.append('لاله')
+    charkhak_days.append(3)
+
+    bot.send_message(message.chat.id, 'چارت ماهانه لیگ چرخک')
+    bot.send_photo(message.chat.id, total_reads_pie(charkhak_people, charkhak_days))
+    bot.send_message(message.chat.id, 'چارت ماهانه موشک')
+    bot.send_photo(message.chat.id, total_reads_pie(mooshak_people, mooshak_days))
+
+
+  except Exception as e:
+        print(f'Error in monthly_reads: {e}')
+
+@bot.message_handler(func= lambda message: (message.text=='آمار ثبت های هفتگی' and str(message.chat.id) == admin_id))
+def weekly_reads(message):
+  try:
+    print('Boobs')
+    users_charkhak = Read_DataBase('Charkhak')
+    users_mooshak = Read_DataBase('Mooshak')
+
+    charkhak_days = []
+    mooshak_days = []
+    charkhak_people = []
+    mooshak_people = []
+
+    for id, name in zip(users_charkhak['ID'], users_charkhak['Name']):
+      charkhak_days.append(days_read(id, users_charkhak, last_shanbe(JalaliDate.today())))
+      charkhak_people.append(name)
+    for id, name in zip(users_mooshak['ID'], users_mooshak['Name']):
+      mooshak_days.append(days_read(id, users_mooshak, last_shanbe(JalaliDate.today())))
+      mooshak_people.append(name)
+
+    charkhak_people.append('اکبر')
+    charkhak_days.append(2)
+    charkhak_people.append('لاله')
+    charkhak_days.append(3)
+
+    bot.send_message(message.chat.id, 'چارت هفتگی لیگ چرخک')
+    bot.send_photo(message.chat.id, total_reads_pie(charkhak_people, charkhak_days))
+    bot.send_message(message.chat.id, 'چارت هفتگی موشک')
+    bot.send_photo(message.chat.id, total_reads_pie(mooshak_people, mooshak_days))
+
+
+  except Exception as e:
+        print(f'Error in weekly_reads: {e}')
+
+
+@bot.message_handler(func= lambda message: (message.text=='تعیین هدف' and str(message.chat.id) == admin_id))
 def goal_set_1(message):
   try:
     bot.send_message(message.chat.id, 'هدف گروه چرخک را وارد کنید')
@@ -810,4 +912,39 @@ def league_goal_situation(message):
     print(f'Error in group_goal_situation: {e}')
     error(message)
 
+"""Reminder section"""
+def check_last_submission(user_books, n):
+    last_submission = max(date for book in user_books.values() for date in book.keys())
+    year, month, day = map(int, last_submission.split('-'))
+    d = JalaliDate(year, month, day)
+    if (JalaliDate.today() - d).days >= n:
+        return True
+    return False
+
+def check_submissions(message):
+    users_charkhak = Read_DataBase('Charkhak')
+    users_mooshak = Read_DataBase('Mooshak')
+
+    for id in users_charkhak['ID']:
+      user_books = eval(users_charkhak.loc[users_charkhak['ID'] == id, 'Books'].values[0])
+      if check_last_submission(user_books, 4):
+        bot.send_message(id, 'سلام دوست عزیز شما بیش از 4 روز است که هیچ ثبتی نداشته اید')
+
+    for id in users_mooshak['ID']:
+      user_books = eval(users_mooshak.loc[users_mooshak['ID'] == id, 'Books'].values[0])
+      if check_last_submission(user_books, 2):
+        bot.send_message(id, 'سلام دوست عزیز شما بیش از 2 روز است که هیچ ثبتی نداشته اید')
+    
+schedule.every().day.at("10:30").do(check_submissions)
+
+def run_scheduler():
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+scheduler_thread = threading.Thread(target=run_scheduler)
+scheduler_thread.start()
+
+    
+    
 bot.polling()
