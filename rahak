@@ -2,7 +2,6 @@ import os
 import io
 import ast
 import time
-import kaleido
 import telebot
 import datetime
 import schedule
@@ -12,15 +11,14 @@ from telebot import types
 import plotly.graph_objects as go
 from persiantools.jdatetime import JalaliDate
 
-BOT_ID = 'bloom_bloom_bloom'
+BOT_ID = '7047772089:AAGHg_wXHy4hj5BnzTbe2z1Ei_PkcTjts5g'
 bot = telebot.TeleBot(BOT_ID)
 
 # Users temp database
 cache = {}
 users_cache = {}
-mooshak_goal = 100
-charkhak_goal = 100
-admin_id = '128402264'
+goal = 100
+admin_id = '168637741'
 
 # Leagues
 Leagues = ['موشک 🚀', 'چرخک ⚙️']
@@ -118,6 +116,7 @@ def league_pie(total, read):
     image_io = io.BytesIO(image_bytes)
 
     return image_io.getvalue()
+
 
   except Exception as e:
     print(f'Error in league_pie : {e}')
@@ -323,11 +322,12 @@ def main_menu(message):
     try:
         global admin_id
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        item0 = types.KeyboardButton('هدف جمعی')
         item1 = types.KeyboardButton('ثبت مطالعه')
         item2 = types.KeyboardButton('مشاهده آمار')
         item3 = types.KeyboardButton('حذف کتاب')
         item4 = types.KeyboardButton('رهک چیست')
-        markup.add(item1, item2, item3, item4)
+        markup.add(item0, item1, item2, item3, item4)
 
         if str(message.chat.id) == admin_id:
           item5 = types.KeyboardButton('تعیین هدف')
@@ -626,7 +626,6 @@ def note_data(message):
         book_name = cache[id][1]
         pages_read = int(message.text)
         date_read = cache[id][0]
-        print(date_read)
 
         if book_name not in user_books:
             user_books[book_name] = {}
@@ -638,8 +637,6 @@ def note_data(message):
                 user_books[book_name][date_read] = pages_read
 
         users.loc[users['ID'] == id, 'Books'] = str(user_books)
-
-        print('\n--------\n',users)
 
         if League == 'C':
             Write_DataBase(users, 'Charkhak')
@@ -689,7 +686,7 @@ def league_progress(message):
 
       bot.send_message(message.chat.id, 'در حال پردازش آمار هستیم، لطفا چند لحظه صبر کنید ...')
 
-      bot.send_photo(message.chat.id, leagues_chart(charkhak_goods, mooshak_goods))
+      bot.send_photo(message.chat.id, leagues_chart(charkhak_goods[::-1], mooshak_goods[::-1]))
 
 
   except Exception as e:
@@ -760,8 +757,6 @@ def remove_book2(message):
 @bot.message_handler(func= lambda message: message.text=='دانلود دیتابیس' and str(message.chat.id) == admin_id)
 def database_download(message):
   try:
-    print('Boobs')
-
     users_charkhak = Read_DataBase('Charkhak')
     users_mooshak = Read_DataBase('Mooshak')
 
@@ -797,15 +792,10 @@ def monthly_reads(message):
       mooshak_days.append(days_read(id, users_mooshak, last_shanbe(JalaliDate.today()-datetime.timedelta(21))))
       mooshak_people.append(name)
 
-    charkhak_people.append('اکبر')
-    charkhak_days.append(2)
-    charkhak_people.append('لاله')
-    charkhak_days.append(3)
-
     bot.send_message(message.chat.id, 'چارت ماهانه لیگ چرخک')
-    bot.send_photo(message.chat.id, total_reads_pie(charkhak_people, charkhak_days))
+    bot.send_photo(message.chat.id, total_reads_pie(charkhak_people, charkhak_days[::-1]))
     bot.send_message(message.chat.id, 'چارت ماهانه موشک')
-    bot.send_photo(message.chat.id, total_reads_pie(mooshak_people, mooshak_days))
+    bot.send_photo(message.chat.id, total_reads_pie(mooshak_people, mooshak_days[::-1]))
 
 
   except Exception as e:
@@ -814,7 +804,6 @@ def monthly_reads(message):
 @bot.message_handler(func= lambda message: (message.text=='آمار ثبت های هفتگی' and str(message.chat.id) == admin_id))
 def weekly_reads(message):
   try:
-    print('Boobs')
     users_charkhak = Read_DataBase('Charkhak')
     users_mooshak = Read_DataBase('Mooshak')
 
@@ -830,15 +819,10 @@ def weekly_reads(message):
       mooshak_days.append(days_read(id, users_mooshak, last_shanbe(JalaliDate.today())))
       mooshak_people.append(name)
 
-    charkhak_people.append('اکبر')
-    charkhak_days.append(2)
-    charkhak_people.append('لاله')
-    charkhak_days.append(3)
-
     bot.send_message(message.chat.id, 'چارت هفتگی لیگ چرخک')
-    bot.send_photo(message.chat.id, total_reads_pie(charkhak_people, charkhak_days))
+    bot.send_photo(message.chat.id, total_reads_pie(charkhak_people, charkhak_days[::-1]))
     bot.send_message(message.chat.id, 'چارت هفتگی موشک')
-    bot.send_photo(message.chat.id, total_reads_pie(mooshak_people, mooshak_days))
+    bot.send_photo(message.chat.id, total_reads_pie(mooshak_people, mooshak_days[::-1]))
 
 
   except Exception as e:
@@ -848,7 +832,7 @@ def weekly_reads(message):
 @bot.message_handler(func= lambda message: (message.text=='تعیین هدف' and str(message.chat.id) == admin_id))
 def goal_set_1(message):
   try:
-    bot.send_message(message.chat.id, 'هدف گروه چرخک را وارد کنید')
+    bot.send_message(message.chat.id, 'هدف را وارد کنید')
     bot.register_next_step_handler(message, goal_set_2)
 
   except Exception as e:
@@ -857,30 +841,19 @@ def goal_set_1(message):
 
 def goal_set_2(message):
   try:
-    global charkhak_goal
-    charkhak_goal = int(message.text)
-    bot.send_message(message.chat.id, 'هدف گروه موشک را وارد کنید')
-    bot.register_next_step_handler(message, goal_set_3)
+    global goal
+    goal = int(message.text)
+    bot.send_message(message.chat.id, f'هدف تعیین شد: {goal}')
 
   except Exception as e:
         print(f'Error in goal_set_2: {e}')
         error(message)
 
-def goal_set_3(message):
-  try:
-    global mooshak_goal, charkhak_goal
-    mooshak_goal = int(message.text)
-    bot.send_message(message.chat.id, f'اهداف جدید تعیین شد. {mooshak_goal} صفحه برای گروه موشک و {charkhak_goal} صفحه برای گروه چرخک.')
-    main_menu(message)
-
-  except Exception as e:
-    print(f'Error in goal_set_3: {e}')
-    error(message)
 
 @bot.message_handler(func=lambda message: message.text=='هدف جمعی')
 def league_goal_situation(message):
   try:
-    global charkhak_goal, mooshak_goal
+    global goal
 
     users_charkhak = Read_DataBase('Charkhak')
     users_mooshak = Read_DataBase('Mooshak')
@@ -900,12 +873,9 @@ def league_goal_situation(message):
     for id in users['ID']:
         all_group_progress += pages_read(id, users)
 
-    if League == 'C':
-        bot.send_message(message.chat.id, f'{all_group_progress} صفحه از {charkhak_goal} صفحه مطالعه شده است. ')
-        bot.send_photo(message.chat.id, league_pie(charkhak_goal, all_group_progress))
-    else:
-        bot.send_message(message.chat.id, f'{all_group_progress} صفحه از {mooshak_goal} صفحه مطالعه شده است. ')
-        bot.send_photo(message.chat.id, league_pie(mooshak_goal, all_group_progress))
+    bot.send_message(message.chat.id, f'{all_group_progress} صفحه از {goal} صفحه مطالعه شده است. ')
+    bot.send_photo(message.chat.id, league_pie(goal, all_group_progress))
+    
 
 
   except Exception as e:
