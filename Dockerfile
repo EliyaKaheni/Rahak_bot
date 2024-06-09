@@ -11,9 +11,9 @@ COPY req.txt .
 RUN pip install --no-cache-dir -r req.txt
 
 # Copy the rest of the application code into the container
-COPY BotRahak.py .
-COPY Mooshak.csv .
-COPY Charkhak.csv .
+COPY ./BotRahak.py .
+COPY ./Mooshak.csv .
+COPY ./Charkhak.csv .
 
 # Set the command to run the bot
 CMD ["python", "BotRahak.py"]
