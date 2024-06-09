@@ -11,6 +11,8 @@ from telebot import types
 import plotly.graph_objects as go
 from persiantools.jdatetime import JalaliDate
 
+print('Running the app')
+
 BOT_ID = '7047772089:AAGHg_wXHy4hj5BnzTbe2z1Ei_PkcTjts5g'
 bot = telebot.TeleBot(BOT_ID)
 
@@ -916,5 +918,7 @@ scheduler_thread = threading.Thread(target=run_scheduler)
 scheduler_thread.start()
 
     
+
+print('go for pooling the app')
     
 bot.polling()
