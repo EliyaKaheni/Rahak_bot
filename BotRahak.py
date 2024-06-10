@@ -584,7 +584,7 @@ def page_set(message):
       print(f'Error in page_set: {e}')
       error(message)
 
-@bot.message_handler(func=lambda message: message.text=='بریم برای ثبت نام ✅')
+@bot.message_handler(func=lambda message: message.text=='رهک چیست')
 def description(message):
     try:
         letter = """"سلام به "رَهَک" خوش اومدی.🌱
