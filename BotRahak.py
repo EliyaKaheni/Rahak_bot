@@ -11,8 +11,6 @@ from telebot import types
 import plotly.graph_objects as go
 from persiantools.jdatetime import JalaliDate
 
-print('Running the app')
-
 BOT_ID = '7047772089:AAGHg_wXHy4hj5BnzTbe2z1Ei_PkcTjts5g'
 bot = telebot.TeleBot(BOT_ID)
 
@@ -586,6 +584,34 @@ def page_set(message):
       print(f'Error in page_set: {e}')
       error(message)
 
+@bot.message_handler(func=lambda message: message.text=='بریم برای ثبت نام ✅')
+def description(message):
+    try:
+        letter = """"سلام به "رَهَک" خوش اومدی.🌱
+ رهک اون راه کوچکیه که ما برای جا دادن عادت کتاب خوانی در زندگیمون بهش وارد شدیم.🛣
+
+رهک یک هدف جمعی داره. اونم کتاب خوندن و با هم بیشتر آشنا شدن. اینجا ما مطالعه‌هامون رو ثبت  میکنیم و برای دور هم بودن بهانه می‌سازیم. 
+
+ابزار های رهک بهتون کمک میکنه هدف گذاری مناسب خودتون بکنید و هدفتون رو از یاد نبرید. 👓
+
+رهک دو تیم داره:✌️🏻
+
+🛞 چرخک: 
+اگه تازه شروع کردی به مطالعه یا در طول هفته سرت خیلی شلوغه این لیگ برای توعه.
+در چرخک ما به خودمون قول میدیم در هفته ۲ الی ۳ روز کتاب بخونیم
+
+🚀 موشک: اگه یک کتاب‌خون حرفه ای هستی راهو درست اومدی. 
+در موشک ما به خودمون قول میدیم ۴ الی ۷ روز در هفته کتاب بخونیم.
+
+
+📌 بعد از اینکه تیمت رو انتخاب کردی، باید هر روزی که به قولت عمل کردی، تعداد صفحه های مطالعتو رو در ربات تلگرامی رهک ثبت کنی. 
+اگر ثبت مطالعه رو فراموش کردی، رهک بهت یادآوری میکنه."""
+        bot.send_message(message.chat.id, letter)
+    
+    except Exception as e:
+      print(f'Error in description: {e}')
+      error(message)
+
 def add_book1(message):
     try:
         global cache
@@ -873,7 +899,9 @@ def league_goal_situation(message):
 
     all_group_progress = 0
     for id in users['ID']:
-        all_group_progress += pages_read(id, users)
+        all_group_progress += pages_read(id, users_charkhak)
+    for id in users['ID']:
+        all_group_progress += pages_read(id, users_mooshak)
 
     bot.send_message(message.chat.id, f'{all_group_progress} صفحه از {goal} صفحه مطالعه شده است. ')
     bot.send_photo(message.chat.id, league_pie(goal, all_group_progress))
@@ -918,7 +946,5 @@ scheduler_thread = threading.Thread(target=run_scheduler)
 scheduler_thread.start()
 
     
-
-print('go for pooling the app')
     
 bot.polling()
