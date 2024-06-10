@@ -86,22 +86,19 @@ def days_read(id, users, last_shanbeh):
 
 def pages_read(id, users):
   try:
-    last_shanbeh = last_shanbe(JalaliDate.today())
     users_reading = users['Books'].loc[users['ID']==id]
     pages_read_by_person = 0
     for reading in users_reading:
       reading = eval(reading)
       for name, reading_list in reading.items():
         for date, pages in reading_list.items():
-            year, month, day = map(int, date.split('-'))
-            d = JalaliDate(year, month, day)
-
-            if last_shanbeh - d >= datetime.timedelta(1):
-                break
-
             pages_read_by_person += pages
 
     return pages_read_by_person
+
+  except Exception as e:
+    print(f'Error in pages_read : {e}')
+    error(id)
 
   except Exception as e:
     print(f'Error in pages_read : {e}')
