@@ -899,9 +899,9 @@ def league_goal_situation(message):
 
     all_group_progress = 0
     for id in users_charkhak['ID']:
-        all_group_progress += pages_read(id, users_charkhak)
+        all_group_progress += pages_read(int(id), users_charkhak)
     for id in users_mooshak['ID']:
-        all_group_progress += pages_read(id, users_mooshak)
+        all_group_progress += pages_read(int(id), users_mooshak)
 
     bot.send_message(message.chat.id, f'{all_group_progress} صفحه از {goal} صفحه مطالعه شده است. ')
     bot.send_photo(message.chat.id, league_pie(goal, all_group_progress))
