@@ -11,7 +11,7 @@ from telebot import types
 import plotly.graph_objects as go
 from persiantools.jdatetime import JalaliDate
 
-BOT_ID = '7047772089:AAGHg_wXHy4hj5BnzTbe2z1Ei_PkcTjts5g'
+BOT_ID = 'KEY'
 bot = telebot.TeleBot(BOT_ID)
 
 # Users temp database
