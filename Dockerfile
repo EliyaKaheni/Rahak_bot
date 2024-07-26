@@ -16,4 +16,4 @@ COPY Mooshak.csv .
 COPY Charkhak.csv .
 
 # Set the command to run the bot
-CMD ["python", "BotRahak.py"]
+CMD ["python3", "BotRahak.py"]
